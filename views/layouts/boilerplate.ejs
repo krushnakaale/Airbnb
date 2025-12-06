@@ -32,13 +32,14 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/css/rating.css">
+    <link rel="stylesheet" href="/css/rating.css" />
   </head>
   <body>
-    <%- include('../includes/navbar.ejs') %>
+    <!-- Pass all locals explicitly to included partials for ejs-mate compatibility -->
+    <%- include('../includes/navbar.ejs', { currUser, success, error }) %>
 
     <div class="container">
-      <%- include('../includes/flash.ejs') %><%- body %>
+      <%- include('../includes/flash.ejs', { success, error }) %> <%- body %>
     </div>
 
     <%- include('../includes/footer.ejs') %>
@@ -50,5 +51,6 @@
       crossorigin="anonymous"
     ></script>
     <script src="/js/script.js"></script>
+    <script src="/js/live-search.js"></script>
   </body>
 </html>

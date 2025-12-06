@@ -1,87 +1,143 @@
 const Listing = require("../models/listing");
+const ExpressError = require("../utils/ExpressError.js");
+const { cloudinary } = require("../cloudConfig");
+const streamifier = require("streamifier");
 
+// Show all listings
 module.exports.index = async (req, res) => {
   const allListings = await Listing.find({});
-  res.render("./listings/index.ejs", { allListings });
+  res.render("listings/index.ejs", {
+    allListings,
+    currUser: res.locals.currUser,
+    success: res.locals.success,
+    error: res.locals.error,
+  });
 };
 
+// Render new listing form
 module.exports.renderNewForm = (req, res) => {
-  res.render("./listings/new.ejs");
+  res.render("listings/new.ejs", {
+    currUser: res.locals.currUser,
+    success: res.locals.success,
+    error: res.locals.error,
+  });
 };
 
+// Show single listing
 module.exports.showListings = async (req, res) => {
-  let { id } = req.params;
+  const { id } = req.params;
   const listing = await Listing.findById(id)
     .populate({
       path: "reviews",
-      populate: {
-        path: "author",
-      },
+      populate: { path: "author" },
     })
     .populate("owner");
+
   if (!listing) {
-    req.flash("error", "Listing you requested for does not exist!");
+    req.flash("error", "Listing you requested does not exist!");
     return res.redirect("/listings");
   }
-  console.log(listing);
-  res.render("./listings/show.ejs", { listing });
+  res.render("listings/show.ejs", {
+    listing,
+    currUser: res.locals.currUser,
+    success: res.locals.success,
+    error: res.locals.error,
+  });
 };
 
-module.exports.createListing = async (req, res, next) => {
-  let url = req.file.path;
-  let filename = req.file.filename;
-
+// Create new listing
+module.exports.createListing = async (req, res) => {
   const newListing = new Listing(req.body.listing);
   newListing.owner = req.user._id;
-  newListing.image = { url, filename };
-  await newListing.save();
-  req.flash("success", "New Listing Created!");
-  return res.redirect("/listings");
+
+  if (req.file) {
+    // Upload image to Cloudinary using streamifier
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: "wanderlust_dev" },
+      async (error, result) => {
+        if (error) throw error;
+        newListing.image = {
+          url: result.secure_url,
+          filename: result.public_id,
+        };
+        await newListing.save();
+        req.flash("success", "New Listing Created!");
+        res.redirect("/listings");
+      }
+    );
+
+    streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+  } else {
+    await newListing.save();
+    req.flash("success", "New Listing Created!");
+    res.redirect("/listings");
+  }
 };
 
+// Render edit listing form
 module.exports.renderEditForm = async (req, res) => {
-  let { id } = req.params;
+  const { id } = req.params;
   const listing = await Listing.findById(id);
+
   if (!listing) {
-    req.flash("error", "Listing you requested for does not exist!");
+    req.flash("error", "Listing you requested does not exist!");
     return res.redirect("/listings");
   }
 
-  let originalImageUrl = listing.image.url;
-  originalImageUrl = originalImageUrl.replace("/upload", "/upload/w_250");
-
-  res.render("./listings/edit.ejs", { listing, originalImageUrl });
+  res.render("listings/edit.ejs", {
+    listing,
+    currUser: res.locals.currUser,
+    success: res.locals.success,
+    error: res.locals.error,
+  });
 };
 
+// Update listing
 module.exports.updateListing = async (req, res) => {
-  if (!req.body.listing) {
-    throw new ExpressError(400, "Send Valid Data For Listing");
-  }
-  let { id } = req.params;
-  const listingData = req.body.listing;
-  if (typeof listingData.image === "string") {
-    listingData.image = {
-      url: listingData.image,
-      filename: "custom-upload", // or leave it default
-    };
-  }
-  let listing = await Listing.findByIdAndUpdate(id, listingData);
+  const { id } = req.params;
+  const listing = await Listing.findByIdAndUpdate(id, req.body.listing, {
+    new: true,
+  });
 
-  if (typeof req.file !== "undefined") {
-    let url = req.file.path;
-    let filename = req.file.filename;
-    listing.image = { url, filename };
-    await listing.save();
-  }
+  if (req.file) {
+    // Delete old image from Cloudinary if exists
+    if (listing.image?.filename) {
+      await cloudinary.uploader.destroy(listing.image.filename);
+    }
 
-  req.flash("success", "Listing Updated!");
-  res.redirect(`/listings/${id}`);
+    // Upload new image
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: "wanderlust_dev" },
+      async (error, result) => {
+        if (error) throw error;
+        listing.image = {
+          url: result.secure_url,
+          filename: result.public_id,
+        };
+        await listing.save();
+        req.flash("success", "Listing Updated!");
+        res.redirect(`/listings/${id}`);
+      }
+    );
+
+    streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+  } else {
+    req.flash("success", "Listing Updated!");
+    res.redirect(`/listings/${id}`);
+  }
 };
 
+// Delete listing
 module.exports.deleteListing = async (req, res) => {
-  let { id } = req.params;
-  let deletedListing = await Listing.findByIdAndDelete(id);
-  // console.log(deletedListing);
+  const { id } = req.params;
+  const listing = await Listing.findById(id);
+
+  if (listing?.image?.filename) {
+    // Delete image from Cloudinary
+    await cloudinary.uploader.destroy(listing.image.filename);
+  }
+
+  await Listing.findByIdAndDelete(id);
   req.flash("success", "Listing Deleted!");
   res.redirect("/listings");
 };

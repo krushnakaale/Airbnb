@@ -110,7 +110,7 @@
   </div>
 </div>
 
-<div class="row row-cols-lg-3 row-cols-md-2 row-cols-sm-1 mt-3">
+<!-- <div class="row row-cols-lg-3 row-cols-md-2 row-cols-sm-1 mt-3">
   <% for(let listings of allListings) {%>
   <a class="listing-links" href="/listings/<%= listings._id %>">
     <div class="card col listing-card">
@@ -131,7 +131,34 @@
     </div>
   </a>
   <%}%>
+</div> -->
+
+<% if (!allListings || allListings.length === 0) { %>
+<p class="text-center mt-3">No listings found.</p>
+<% } else { %>
+<div class="row row-cols-lg-3 row-cols-md-2 row-cols-sm-1 mt-3">
+  <% for(let listings of allListings) { %>
+  <a class="listing-links" href="/listings/<%= listings._id %>">
+    <div class="card col listing-card">
+      <img
+        src="<%= listings.image.url %>"
+        class="card-img-top"
+        alt="listing_image"
+      />
+      <div class="card-img-overlay"></div>
+      <div class="card-body">
+        <p class="card-text">
+          <%= listings.title %>
+          <br />
+          &#8377;<%= listings.price.toLocaleString("en-IN") %> / night
+          <i class="tax-info">&nbsp; &nbsp; +18% GST</i>
+        </p>
+      </div>
+    </div>
+  </a>
+  <% } %>
 </div>
+<% } %>
 
 <script>
   let taxSwitch = document.getElementById("switchCheckDefault");
@@ -146,3 +173,5 @@
     }
   });
 </script>
+
+

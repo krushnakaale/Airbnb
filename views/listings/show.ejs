@@ -12,7 +12,7 @@
     <div class="card-body">
       <div class="card-text mt-2">
         <div class="mb-2 fs-5 text-muted">
-          <i><%= listing.owner.username %></i>
+          <i><%= listing.owner?.username || "Unknown" %></i>
         </div>
 
         <%= listing.description %> <br />
@@ -130,7 +130,7 @@
       <% for(reviews of listing.reviews) { %>
       <div class="card ms-3 col-5 mb-3">
         <div class="card-body">
-          <h5 class="card-title">@<%= reviews.author.username %></h5>
+          <h5 class="card-title">@<%= reviews.author?.username || "Unknown" %></h5>
           <p
             class="starability-result card-text"
             data-rating="<%= reviews.rating %>"
